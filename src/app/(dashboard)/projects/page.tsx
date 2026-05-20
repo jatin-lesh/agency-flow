@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/auth/SessionProvider";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, FolderKanban, CheckSquare, Calendar } from "lucide-react";

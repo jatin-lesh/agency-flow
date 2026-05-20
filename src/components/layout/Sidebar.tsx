@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users2,
@@ -30,6 +29,13 @@ interface SidebarProps {
 
 export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col bg-slate-900 text-white">
@@ -77,7 +83,7 @@ export default function Sidebar({ user }: SidebarProps) {
             <p className="text-xs text-slate-400 truncate capitalize">{user.role.toLowerCase().replace("_", " ")}</p>
           </div>
           <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={handleLogout}
             className="text-slate-400 hover:text-white transition-colors"
             title="Sign out"
           >

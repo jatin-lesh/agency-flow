@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,27 +24,28 @@ export default function RegisterPage() {
 
     try {
       // Step 1: Create the account
-      const res = await fetch("/api/register", {
+      const regRes = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+      if (!regRes.ok) {
+        const data = await regRes.json().catch(() => ({}));
         setError(data.error ?? "Registration failed. Please try again.");
         setLoading(false);
         return;
       }
 
-      // Step 2: Sign in — if this hangs or fails, redirect to login with success message
-      const signInResult = await Promise.race([
-        signIn("credentials", { email, password, redirect: false }),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
-      ]);
+      // Step 2: Log in immediately
+      const loginRes = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (!signInResult || (signInResult as { error?: string }).error) {
-        // Sign-in failed or timed out — account was created, just go to login
+      if (!loginRes.ok) {
+        // Account was created but auto-login failed — go to login
         router.push("/login?registered=1");
         return;
       }

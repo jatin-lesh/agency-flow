@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/auth/SessionProvider";
 import Link from "next/link";
 import { Plus, Building2, Globe, FolderKanban } from "lucide-react";
 import Header from "@/components/layout/Header";

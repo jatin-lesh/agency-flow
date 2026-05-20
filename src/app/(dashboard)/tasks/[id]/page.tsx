@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, use } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/auth/SessionProvider";
 import Link from "next/link";
 import { ArrowLeft, Calendar, User, FolderKanban } from "lucide-react";
 import { format } from "date-fns";

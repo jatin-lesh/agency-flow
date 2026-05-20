@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, use } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/auth/SessionProvider";
 import Link from "next/link";
 import { Plus, Mail, Phone, Briefcase, Star, FolderKanban, CheckSquare, ArrowLeft } from "lucide-react";
 import Header from "@/components/layout/Header";
