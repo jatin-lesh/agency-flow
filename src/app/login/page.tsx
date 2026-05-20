@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,19 +11,34 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("registered") === "1") {
+      setInfo("Account created! Please sign in.");
+    }
+  }, [searchParams]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const res = await signIn("credentials", { email, password, redirect: false });
-    setLoading(false);
-    if (res?.error) { setError("Invalid email or password."); return; }
-    router.push("/dashboard");
+    setInfo("");
+    try {
+      const res = await signIn("credentials", { email, password, redirect: false });
+      setLoading(false);
+      if (res?.error) { setError("Invalid email or password."); return; }
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setLoading(false);
+      setError("Sign in failed. Please try again.");
+    }
   }
 
   return (
@@ -62,6 +77,7 @@ export default function LoginPage() {
                   className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500 focus-visible:ring-indigo-500"
                 />
               </div>
+              {info  && <p className="text-sm text-emerald-400">{info}</p>}
               {error && <p className="text-sm text-red-400">{error}</p>}
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? "Signing in…" : "Sign In"}

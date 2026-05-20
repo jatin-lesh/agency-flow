@@ -22,19 +22,39 @@ export default function RegisterPage() {
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
     setError("");
-    const res = await fetch("/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error ?? "Registration failed.");
+
+    try {
+      // Step 1: Create the account
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Registration failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Sign in — if this hangs or fails, redirect to login with success message
+      const signInResult = await Promise.race([
+        signIn("credentials", { email, password, redirect: false }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+      ]);
+
+      if (!signInResult || (signInResult as { error?: string }).error) {
+        // Sign-in failed or timed out — account was created, just go to login
+        router.push("/login?registered=1");
+        return;
+      }
+
+      router.push("/dashboard");
+    } catch {
+      setError("Something went wrong. Your account may have been created — try signing in.");
       setLoading(false);
-      return;
     }
-    await signIn("credentials", { email, password, redirect: false });
-    router.push("/dashboard");
   }
 
   return (
