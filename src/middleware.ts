@@ -11,8 +11,8 @@ function getSecret(): Uint8Array {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow all /api/auth/* (our login/logout/session endpoints)
-  if (pathname.startsWith("/api/auth")) return NextResponse.next();
+  // API routes handle their own auth (return 401) — middleware only guards page navigation
+  if (pathname.startsWith("/api/")) return NextResponse.next();
 
   const isAuthPage =
     pathname.startsWith("/login") || pathname.startsWith("/register");
