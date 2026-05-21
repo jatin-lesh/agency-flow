@@ -18,7 +18,7 @@ import { TaskStatus, Priority, Visibility } from "@prisma/client";
 
 interface Message {
   id: string; content: string; isEdited: boolean; createdAt: string;
-  user: { id: string; name: string; avatar?: string | null; role: string };
+  user: { id: string; name: string; avatar?: string | null; role: string } | null;
   attachments: { id: string; name: string; url: string; type: string }[];
 }
 interface Task {
@@ -26,7 +26,7 @@ interface Task {
   status: TaskStatus; priority: Priority; visibility: Visibility;
   dueDate?: string;
   assignee?: { id: string; name: string; avatar?: string | null; email?: string } | null;
-  creator: { id: string; name: string; avatar?: string | null };
+  creator?: { id: string; name: string; avatar?: string | null } | null;
   project: { id: string; name: string; client: { id: string; name: string } };
   messages: Message[];
 }
@@ -56,7 +56,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   const isManager = session && canManage(session.user.role);
-  const canEdit = isManager || task?.assignee?.id === session?.user?.id || task?.creator?.id === session?.user?.id;
+  const canEdit = isManager || task?.assignee?.id === session?.user?.id || (task?.creator?.id && task.creator.id === session?.user?.id);
 
   if (!task) return <div className="flex-1 flex items-center justify-center text-slate-400">Loading…</div>;
 
@@ -193,10 +193,14 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Created by</h3>
             <div className="flex items-center gap-2">
               <Avatar className="h-6 w-6">
-                <AvatarImage src={task.creator.avatar ?? undefined} />
-                <AvatarFallback className="text-[10px]">{task.creator.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={task.creator?.avatar ?? undefined} />
+                <AvatarFallback className="text-[10px]">
+                  {(task.creator?.name ?? "?").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
-              <span className="text-sm text-slate-700">{task.creator.name}</span>
+              <span className="text-sm text-slate-700">
+                {task.creator?.name ?? <span className="italic text-slate-400">Deleted user</span>}
+              </span>
             </div>
           </div>
 

@@ -18,9 +18,13 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState("");
+
+  // Delete account state
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     fetch("/api/profile")
@@ -29,7 +33,6 @@ export default function ProfilePage() {
         setProfile(data);
         setName(data.name ?? "");
         setPhone(data.phone ?? "");
-        setWhatsappEnabled(data.whatsappEnabled ?? false);
       });
   }, []);
 
@@ -40,7 +43,7 @@ export default function ProfilePage() {
     const res = await fetch("/api/profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone, whatsappEnabled }),
+      body: JSON.stringify({ name, phone }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -51,10 +54,29 @@ export default function ProfilePage() {
     setTimeout(() => setInfo(""), 2000);
   }
 
+  async function deleteAccount() {
+    if (deleteConfirm !== "DELETE") {
+      setDeleteError('Type DELETE in all caps to confirm.');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError("");
+    const res = await fetch("/api/profile", { method: "DELETE" });
+    if (res.ok) {
+      window.location.href = "/login";
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setDeleteError(data.error ?? "Something went wrong.");
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col flex-1">
-      <Header title="Profile" subtitle="Update your account and notification preferences" />
+      <Header title="Profile" subtitle="Manage your account" />
       <div className="p-6 max-w-2xl space-y-6">
+
+        {/* Account details */}
         <Card>
           <CardHeader>
             <CardTitle>Account</CardTitle>
@@ -83,6 +105,38 @@ export default function ProfilePage() {
             </form>
           </CardContent>
         </Card>
+
+        {/* Danger zone */}
+        <Card className="border-red-200 bg-red-50/40">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-red-700 text-base">Danger Zone</CardTitle>
+            <CardDescription className="text-red-600/80">
+              Permanently delete your account and all associated data. This cannot be undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-red-700">
+                Type <span className="font-mono font-bold">DELETE</span> to confirm
+              </Label>
+              <Input
+                value={deleteConfirm}
+                onChange={(e) => { setDeleteConfirm(e.target.value); setDeleteError(""); }}
+                placeholder="DELETE"
+                className="border-red-300 focus-visible:ring-red-400 max-w-xs"
+              />
+            </div>
+            {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={deleteAccount}
+            >
+              {deleting ? "Deleting…" : "Delete my account"}
+            </Button>
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );

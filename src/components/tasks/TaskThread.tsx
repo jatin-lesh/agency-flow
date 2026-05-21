@@ -19,7 +19,7 @@ interface Message {
   content: string;
   isEdited: boolean;
   createdAt: string;
-  user: { id: string; name: string; avatar?: string | null; role: string };
+  user: { id: string; name: string; avatar?: string | null; role: string } | null;
   attachments: Attachment[];
 }
 
@@ -144,7 +144,7 @@ export default function TaskThread({ taskId, currentUserId, currentUserRole, ini
   }
 
   const canModify = (msg: Message) =>
-    msg.user.id === currentUserId ||
+    (msg.user?.id === currentUserId) ||
     currentUserRole === "ADMIN" ||
     currentUserRole === "MANAGER";
 
@@ -161,12 +161,16 @@ export default function TaskThread({ taskId, currentUserId, currentUserRole, ini
         {messages.map((msg) => (
           <div key={msg.id} className="flex gap-3 group">
             <Avatar className="h-8 w-8 shrink-0 mt-0.5">
-              <AvatarImage src={msg.user.avatar ?? undefined} />
-              <AvatarFallback className="text-xs">{msg.user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={msg.user?.avatar ?? undefined} />
+              <AvatarFallback className="text-xs">
+                {(msg.user?.name ?? "?").slice(0, 2).toUpperCase()}
+              </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2">
-                <span className="text-sm font-semibold text-slate-900">{msg.user.name}</span>
+                <span className="text-sm font-semibold text-slate-900">
+                  {msg.user?.name ?? <span className="italic text-slate-400">Deleted user</span>}
+                </span>
                 <span className="text-xs text-slate-400">
                   {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
                 </span>

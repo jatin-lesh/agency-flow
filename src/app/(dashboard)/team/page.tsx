@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
-import { UsersRound, CheckSquare } from "lucide-react";
+import { UsersRound, CheckSquare, Trash2 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,6 +38,16 @@ export default function TeamPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, role }),
+    });
+    load();
+  }
+
+  async function deleteUser(userId: string, name: string) {
+    if (!confirm(`Delete ${name}'s account permanently? This cannot be undone.`)) return;
+    await fetch("/api/team", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
     });
     load();
   }
@@ -99,6 +109,15 @@ export default function TeamPage() {
                       <CheckSquare className="h-3 w-3" /> {m._count.assignedTasks} task{m._count.assignedTasks !== 1 ? "s" : ""} assigned
                     </p>
                   </div>
+                  {adminUser && m.id !== session?.user?.id && (
+                    <button
+                      onClick={() => deleteUser(m.id, m.name)}
+                      className="shrink-0 p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      title="Delete account"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </CardContent>
             </Card>

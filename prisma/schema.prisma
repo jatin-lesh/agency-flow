@@ -86,7 +86,7 @@ model User {
 
   assignedTasks   Task[]              @relation("TaskAssignee")
   createdTasks    Task[]              @relation("TaskCreator")
-  messages        ThreadMessage[]
+  messages        ThreadMessage[]     @relation("MessageAuthor")
   accounts        Account[]
   sessions        Session[]
   ownedWorkspaces Workspace[]         @relation("WorkspaceOwner")
@@ -252,8 +252,8 @@ model Task {
   project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assigneeId  String?
   assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  creatorId   String
-  creator     User       @relation("TaskCreator", fields: [creatorId], references: [id])
+  creatorId   String?
+  creator     User?      @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: SetNull)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -265,8 +265,8 @@ model ThreadMessage {
   content   String
   taskId    String
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  userId    String?
+  user      User?    @relation("MessageAuthor", fields: [userId], references: [id], onDelete: SetNull)
   isEdited  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

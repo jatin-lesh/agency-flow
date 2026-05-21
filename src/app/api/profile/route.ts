@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { SESSION_COOKIE } from "@/lib/session";
+import { deleteUserAccount } from "@/app/api/team/route";
 
 export async function GET() {
   const session = await auth();
@@ -43,4 +45,16 @@ export async function PATCH(req: Request) {
     },
   });
   return NextResponse.json(user);
+}
+
+export async function DELETE() {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  await deleteUserAccount(session.user.id);
+
+  // Clear the session cookie
+  const res = NextResponse.json({ ok: true });
+  res.cookies.set(SESSION_COOKIE, "", { httpOnly: true, maxAge: 0, path: "/" });
+  return res;
 }
