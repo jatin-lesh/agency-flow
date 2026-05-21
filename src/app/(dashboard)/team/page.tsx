@@ -1,10 +1,13 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
-import { UsersRound, CheckSquare, Trash2 } from "lucide-react";
+import { UsersRound, CheckSquare, Trash2, UserPlus } from "lucide-react";
 import Header from "@/components/layout/Header";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,6 +28,13 @@ export default function TeamPage() {
   const { data: session } = useSession();
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState("");
+
+  // Invite dialog
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("MEMBER");
+  const [inviting, setInviting] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/team");
@@ -52,6 +62,30 @@ export default function TeamPage() {
     load();
   }
 
+  async function sendInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session?.user?.workspaceId) {
+      setInviteMsg({ ok: false, text: "No active workspace. Switch to a workspace first." });
+      return;
+    }
+    setInviting(true);
+    setInviteMsg(null);
+    const res = await fetch(`/api/workspaces/${session.user.workspaceId}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setInviteMsg({ ok: true, text: `Invite sent to ${inviteEmail}.` });
+      setInviteEmail("");
+      setInviteRole("MEMBER");
+    } else {
+      setInviteMsg({ ok: false, text: data.error ?? "Failed to send invite." });
+    }
+    setInviting(false);
+  }
+
   const filtered = members.filter((m) =>
     m.name.toLowerCase().includes(search.toLowerCase()) ||
     m.email.toLowerCase().includes(search.toLowerCase())
@@ -61,10 +95,25 @@ export default function TeamPage() {
 
   return (
     <div className="flex flex-col flex-1">
-      <Header title="Team" subtitle={`${members.length} member${members.length !== 1 ? "s" : ""}`} />
+      <Header
+        title="Team"
+        subtitle={`${members.length} member${members.length !== 1 ? "s" : ""}`}
+        action={
+          adminUser ? (
+            <Button size="sm" onClick={() => { setInviteOpen(true); setInviteMsg(null); }}>
+              <UserPlus className="h-4 w-4" /> Invite member
+            </Button>
+          ) : undefined
+        }
+      />
 
       <div className="p-6 space-y-4">
-        <Input placeholder="Search by name or email…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-sm" />
+        <Input
+          placeholder="Search by name or email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-sm"
+        />
 
         {filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
@@ -98,7 +147,6 @@ export default function TeamPage() {
                             <SelectItem value="ADMIN">Admin</SelectItem>
                             <SelectItem value="MANAGER">Manager</SelectItem>
                             <SelectItem value="MEMBER">Member</SelectItem>
-                            <SelectItem value="CLIENT_USER">Client</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (
@@ -124,6 +172,64 @@ export default function TeamPage() {
           ))}
         </div>
       </div>
+
+      {/* Invite member dialog */}
+      <Dialog open={inviteOpen} onOpenChange={(o) => { setInviteOpen(o); if (!o) setInviteMsg(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite team member</DialogTitle>
+            <DialogDescription>
+              They&apos;ll receive an email with a link to create their account and join your workspace.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={sendInvite} className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label>Email address</Label>
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="colleague@agency.com"
+                required
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Role</Label>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ADMIN">
+                    <span className="font-medium">Admin</span>
+                    <span className="text-slate-400 ml-2 text-xs">Full access, can manage team</span>
+                  </SelectItem>
+                  <SelectItem value="MANAGER">
+                    <span className="font-medium">Manager</span>
+                    <span className="text-slate-400 ml-2 text-xs">Manage projects and tasks</span>
+                  </SelectItem>
+                  <SelectItem value="MEMBER">
+                    <span className="font-medium">Member</span>
+                    <span className="text-slate-400 ml-2 text-xs">Work on assigned tasks</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {inviteMsg && (
+              <p className={`text-sm ${inviteMsg.ok ? "text-emerald-600" : "text-red-500"}`}>
+                {inviteMsg.text}
+              </p>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={inviting}>
+                {inviting ? "Sending…" : "Send invite"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
