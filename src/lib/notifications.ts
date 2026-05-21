@@ -1,24 +1,43 @@
 import type { PrismaClient } from "@prisma/client";
-import { sendWhatsApp } from "./whatsapp";
 
 type MinimalTask = { id: string; title: string };
 
-function eventToMessage(event: string, task: MinimalTask, actorName: string): string {
+function eventToNotification(
+  event: string,
+  task: MinimalTask,
+  actorName: string,
+): { title: string; message: string; type: "TASK_ASSIGNED" | "TASK_UPDATED" | "MESSAGE_ADDED" | "GENERAL" } {
   switch (event) {
     case "task.created":
-      return `📋 New task assigned to you by ${actorName}: ${task.title}`;
+      return {
+        title: "New task assigned",
+        message: `${actorName} assigned you to "${task.title}"`,
+        type: "TASK_ASSIGNED",
+      };
     case "task.updated":
-      return `✅ Task updated by ${actorName}: ${task.title}`;
+      return {
+        title: "Task updated",
+        message: `${actorName} updated "${task.title}"`,
+        type: "TASK_UPDATED",
+      };
     case "task.message":
-      return `💬 New message from ${actorName} in: ${task.title}`;
+      return {
+        title: "New message",
+        message: `${actorName} commented on "${task.title}"`,
+        type: "MESSAGE_ADDED",
+      };
     default:
-      return `🔔 ${event}: ${task.title}`;
+      return {
+        title: "Notification",
+        message: `${event}: ${task.title}`,
+        type: "GENERAL",
+      };
   }
 }
 
 /**
- * Notify users involved with a task via WhatsApp (assignee + creator).
- * Silently skips users without phone or whatsappEnabled.
+ * Creates in-app notification records for users involved with a task.
+ * Notifies assignee and creator, excluding the actor themselves.
  */
 export async function notifyTaskEvent(
   event: string,
@@ -30,28 +49,36 @@ export async function notifyTaskEvent(
     const full = await db.task.findUnique({
       where: { id: task.id },
       select: {
-        assignee: { select: { id: true, phone: true, whatsappEnabled: true } },
-        creator: { select: { id: true, phone: true, whatsappEnabled: true } },
+        assignee: { select: { id: true, name: true } },
+        creator: { select: { id: true, name: true } },
       },
     });
     if (!full) return;
 
-    const recipients = new Map<string, string>();
-    const message = eventToMessage(event, task, actorName);
+    const { title, message, type } = eventToNotification(event, task, actorName);
+    const link = `/dashboard/tasks/${task.id}`;
 
-    for (const u of [full.assignee, full.creator]) {
-      if (u && u.whatsappEnabled && u.phone) {
-        recipients.set(u.id, u.phone);
-      }
-    }
+    // Collect unique recipient IDs (exclude the actor)
+    const recipientIds = new Set<string>();
+    if (full.assignee) recipientIds.add(full.assignee.id);
+    if (full.creator) recipientIds.add(full.creator.id);
 
-    await Promise.all(
-      Array.from(recipients.values()).map((phone) =>
-        sendWhatsApp(phone, message).catch((e) =>
-          console.error("[notifications] whatsapp send error:", e),
-        ),
-      ),
-    );
+    // Remove actor — find by name match (actor name comes from session.user.name)
+    // We don't have actorId here so we exclude by matching name
+    if (full.assignee?.name === actorName) recipientIds.delete(full.assignee.id);
+    if (full.creator?.name === actorName) recipientIds.delete(full.creator.id);
+
+    if (recipientIds.size === 0) return;
+
+    await db.notification.createMany({
+      data: Array.from(recipientIds).map((userId) => ({
+        userId,
+        title,
+        message,
+        type,
+        link,
+      })),
+    });
   } catch (err) {
     console.error("[notifications] notifyTaskEvent error:", err);
   }

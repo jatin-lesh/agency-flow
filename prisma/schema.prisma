@@ -63,6 +63,14 @@ enum OTPPurpose {
   INVITE
 }
 
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  MESSAGE_ADDED
+  WORKSPACE_INVITE
+  GENERAL
+}
+
 model User {
   id              String   @id @default(cuid())
   name            String
@@ -84,6 +92,7 @@ model User {
   ownedWorkspaces Workspace[]         @relation("WorkspaceOwner")
   workspaces      WorkspaceMember[]
   portalAccess    ClientPortalAccess?
+  notifications   Notification[]
 }
 
 model Account {
@@ -275,4 +284,18 @@ model Attachment {
   messageId String
   message   ThreadMessage  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   createdAt DateTime       @default(now())
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      NotificationType @default(GENERAL)
+  read      Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
 }
