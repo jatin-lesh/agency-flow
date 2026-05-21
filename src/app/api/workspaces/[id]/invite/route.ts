@@ -5,6 +5,11 @@ import { db } from "@/lib/db";
 import { sendInvitation } from "@/lib/email";
 import type { WorkspaceRole } from "@prisma/client";
 
+const appUrl =
+  process.env.NEXT_PUBLIC_APP_URL ??
+  process.env.APP_URL ??
+  "http://localhost:3000";
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -26,7 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const token = crypto.randomBytes(24).toString("hex");
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-  const invitation = await db.workspaceInvitation.create({
+  await db.workspaceInvitation.create({
     data: {
       workspaceId,
       email,
@@ -37,13 +42,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     },
   });
 
-  // If a clientId is given, mark intent — we'll create ClientPortalAccess at acceptance time
-  // Persisted as a note column would be ideal, but for now we look it up via metadata heuristic:
-  // we encode it in the invitation's email+role+workspaceId scope. To keep it explicit, store
-  // a quick mapping by attaching ClientPortalAccess on accept based on `clientId` looked up from
-  // an out-of-band table — simplest approach: stash in a global map via the invitation token.
-  // Here, we forward the clientId via the email link by adding a query param.
-  await sendInvitation(email, token + (clientId ? `?client=${clientId}` : ""), ws.name, session.user.name);
+  // Build the full invite link (clientId embedded as query param for portal invites)
+  const inviteLink = clientId
+    ? `${appUrl}/invitations/${token}?client=${clientId}`
+    : `${appUrl}/invitations/${token}`;
 
-  return NextResponse.json({ ok: true, id: invitation.id });
+  // Try to send email — may fail if no custom domain is verified in Resend
+  let emailSent = false;
+  try {
+    const result = await sendInvitation(
+      email,
+      clientId ? `${token}?client=${clientId}` : token,
+      ws.name,
+      session.user.name,
+    );
+    emailSent = !("skipped" in result) && !("error" in result);
+  } catch {
+    emailSent = false;
+  }
+
+  return NextResponse.json({ ok: true, inviteLink, emailSent });
 }

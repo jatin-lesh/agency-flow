@@ -38,6 +38,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/clients/${id}`);
@@ -77,6 +79,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
     setInviting(true);
     setInviteMsg(null);
+    setInviteLink(null);
     const res = await fetch(`/api/workspaces/${session.user.workspaceId}/invite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -84,12 +87,24 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      setInviteMsg({ ok: true, text: `Invite sent to ${inviteEmail}. They'll receive an email to create their account.` });
+      setInviteLink(data.inviteLink);
+      setInviteMsg({
+        ok: true,
+        text: data.emailSent
+          ? `Invite email sent to ${inviteEmail}.`
+          : `Email could not be sent — share the link below directly.`,
+      });
       setInviteEmail("");
     } else {
-      setInviteMsg({ ok: false, text: data.error ?? "Failed to send invite." });
+      setInviteMsg({ ok: false, text: data.error ?? "Failed to create invite." });
     }
     setInviting(false);
+  }
+
+  async function copyLink(link: string) {
+    await navigator.clipboard.writeText(link);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   }
 
   const isManager = session && canManage(session.user.role);
@@ -194,36 +209,54 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Invite to Portal Dialog */}
-      <Dialog open={inviteOpen} onOpenChange={(o) => { setInviteOpen(o); if (!o) setInviteMsg(null); }}>
+      <Dialog open={inviteOpen} onOpenChange={(o) => { setInviteOpen(o); if (!o) { setInviteMsg(null); setInviteLink(null); setLinkCopied(false); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Invite client to portal</DialogTitle>
             <DialogDescription>
-              Send an email invite so your client can create an account and view their projects &amp; tasks on the portal.
+              Generate an invite link for your client. They&apos;ll create an account and land directly on their portal.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={sendPortalInvite} className="space-y-4 mt-2">
-            <div className="space-y-1.5">
-              <Label>Client&apos;s email address</Label>
-              <Input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="client@example.com"
-                required
-                autoFocus
-              />
-            </div>
+            {!inviteLink && (
+              <div className="space-y-1.5">
+                <Label>Client&apos;s email address</Label>
+                <Input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="client@example.com"
+                  required
+                  autoFocus
+                />
+              </div>
+            )}
             {inviteMsg && (
               <p className={`text-sm ${inviteMsg.ok ? "text-emerald-600" : "text-red-500"}`}>
                 {inviteMsg.text}
               </p>
             )}
+            {inviteLink && (
+              <div className="space-y-1.5">
+                <Label>Invite link — share this with your client</Label>
+                <div className="flex gap-2">
+                  <Input value={inviteLink} readOnly className="text-xs font-mono" />
+                  <Button type="button" variant="outline" onClick={() => copyLink(inviteLink)} className="shrink-0">
+                    {linkCopied ? "Copied!" : "Copy"}
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-400">Valid for 7 days. Send via WhatsApp, email, or any messenger.</p>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={inviting}>
-                {inviting ? "Sending…" : "Send invite"}
+              <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>
+                {inviteLink ? "Done" : "Cancel"}
               </Button>
+              {!inviteLink && (
+                <Button type="submit" disabled={inviting}>
+                  {inviting ? "Creating…" : "Create invite"}
+                </Button>
+              )}
             </div>
           </form>
         </DialogContent>

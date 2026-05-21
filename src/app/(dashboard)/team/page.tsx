@@ -35,6 +35,8 @@ export default function TeamPage() {
   const [inviteRole, setInviteRole] = useState("MEMBER");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/team");
@@ -70,6 +72,7 @@ export default function TeamPage() {
     }
     setInviting(true);
     setInviteMsg(null);
+    setInviteLink(null);
     const res = await fetch(`/api/workspaces/${session.user.workspaceId}/invite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -77,13 +80,25 @@ export default function TeamPage() {
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      setInviteMsg({ ok: true, text: `Invite sent to ${inviteEmail}.` });
+      setInviteLink(data.inviteLink);
+      setInviteMsg({
+        ok: true,
+        text: data.emailSent
+          ? `Invite email sent to ${inviteEmail}.`
+          : `Email could not be sent — share the link below directly.`,
+      });
       setInviteEmail("");
       setInviteRole("MEMBER");
     } else {
-      setInviteMsg({ ok: false, text: data.error ?? "Failed to send invite." });
+      setInviteMsg({ ok: false, text: data.error ?? "Failed to create invite." });
     }
     setInviting(false);
+  }
+
+  async function copyLink(link: string) {
+    await navigator.clipboard.writeText(link);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   }
 
   const filtered = members.filter((m) =>
@@ -174,7 +189,7 @@ export default function TeamPage() {
       </div>
 
       {/* Invite member dialog */}
-      <Dialog open={inviteOpen} onOpenChange={(o) => { setInviteOpen(o); if (!o) setInviteMsg(null); }}>
+      <Dialog open={inviteOpen} onOpenChange={(o) => { setInviteOpen(o); if (!o) { setInviteMsg(null); setInviteLink(null); setLinkCopied(false); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Invite team member</DialogTitle>
@@ -221,11 +236,32 @@ export default function TeamPage() {
                 {inviteMsg.text}
               </p>
             )}
+            {inviteLink && (
+              <div className="space-y-1.5">
+                <Label>Invite link — share this directly</Label>
+                <div className="flex gap-2">
+                  <Input value={inviteLink} readOnly className="text-xs font-mono" />
+                  <Button type="button" variant="outline" onClick={() => copyLink(inviteLink)} className="shrink-0">
+                    {linkCopied ? "Copied!" : "Copy"}
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-400">Valid for 7 days. Send via WhatsApp, email, or any messenger.</p>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={inviting}>
-                {inviting ? "Sending…" : "Send invite"}
+              <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>
+                {inviteLink ? "Done" : "Cancel"}
               </Button>
+              {!inviteLink && (
+                <Button type="submit" disabled={inviting}>
+                  {inviting ? "Creating…" : "Send invite"}
+                </Button>
+              )}
+              {inviteLink && (
+                <Button type="button" onClick={() => { setInviteLink(null); setInviteMsg(null); setLinkCopied(false); }}>
+                  Invite another
+                </Button>
+              )}
             </div>
           </form>
         </DialogContent>
