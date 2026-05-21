@@ -67,25 +67,12 @@ export default function ProfilePage() {
                 <Input value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
               <div className="space-y-1.5">
-                <Label>Phone (with country code, e.g. +14155551234)</Label>
+                <Label>Phone</Label>
                 <Input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+14155551234"
                 />
-                <p className="text-xs text-slate-500">Used for WhatsApp notifications.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  id="wa"
-                  type="checkbox"
-                  checked={whatsappEnabled}
-                  onChange={(e) => setWhatsappEnabled(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <Label htmlFor="wa" className="cursor-pointer">
-                  Enable WhatsApp notifications for tasks
-                </Label>
               </div>
               <div className="flex items-center gap-3">
                 <Button type="submit" disabled={saving}>
