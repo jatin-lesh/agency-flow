@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, use } from "react";
 import { useSession } from "@/components/auth/SessionProvider";
 import Link from "next/link";
-import { Plus, Mail, Phone, Briefcase, Star, FolderKanban, CheckSquare, ArrowLeft } from "lucide-react";
+import { Plus, Mail, Phone, Briefcase, Star, FolderKanban, CheckSquare, ArrowLeft, UserPlus } from "lucide-react";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisibilityBadge } from "@/components/shared/VisibilityBadge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { canManage } from "@/lib/utils";
@@ -32,6 +32,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [pocNotes, setPocNotes] = useState("");
   const [pocPrimary, setPocPrimary] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Portal invite state
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/clients/${id}`);
@@ -63,6 +69,29 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     load();
   }
 
+  async function sendPortalInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!session?.user?.workspaceId) {
+      setInviteMsg({ ok: false, text: "No active workspace. Please switch to a workspace first." });
+      return;
+    }
+    setInviting(true);
+    setInviteMsg(null);
+    const res = await fetch(`/api/workspaces/${session.user.workspaceId}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: inviteEmail, role: "CLIENT", clientId: id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setInviteMsg({ ok: true, text: `Invite sent to ${inviteEmail}. They'll receive an email to create their account.` });
+      setInviteEmail("");
+    } else {
+      setInviteMsg({ ok: false, text: data.error ?? "Failed to send invite." });
+    }
+    setInviting(false);
+  }
+
   const isManager = session && canManage(session.user.role);
 
   if (!client) return <div className="flex-1 flex items-center justify-center text-slate-400">Loading…</div>;
@@ -75,6 +104,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         action={
           <div className="flex gap-2">
             <Link href="/clients"><Button variant="outline" size="sm"><ArrowLeft className="h-4 w-4" /> Back</Button></Link>
+            {isManager && (
+              <Button size="sm" variant="outline" onClick={() => { setInviteOpen(true); setInviteMsg(null); }}>
+                <UserPlus className="h-4 w-4" /> Invite to portal
+              </Button>
+            )}
             {isManager && <Button size="sm" onClick={() => setPocOpen(true)}><Plus className="h-4 w-4" /> Add POC</Button>}
           </div>
         }
@@ -158,6 +192,42 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           </Card>
         </div>
       </div>
+
+      {/* Invite to Portal Dialog */}
+      <Dialog open={inviteOpen} onOpenChange={(o) => { setInviteOpen(o); if (!o) setInviteMsg(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite client to portal</DialogTitle>
+            <DialogDescription>
+              Send an email invite so your client can create an account and view their projects &amp; tasks on the portal.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={sendPortalInvite} className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label>Client&apos;s email address</Label>
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="client@example.com"
+                required
+                autoFocus
+              />
+            </div>
+            {inviteMsg && (
+              <p className={`text-sm ${inviteMsg.ok ? "text-emerald-600" : "text-red-500"}`}>
+                {inviteMsg.text}
+              </p>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={inviting}>
+                {inviting ? "Sending…" : "Send invite"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Add POC Dialog */}
       <Dialog open={pocOpen} onOpenChange={setPocOpen}>
