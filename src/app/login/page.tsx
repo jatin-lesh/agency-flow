@@ -42,8 +42,8 @@ function LoginForm() {
         return;
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      // Hard navigation so SessionProvider re-mounts and fetches the new cookie
+      window.location.href = "/dashboard";
     } catch {
       setLoading(false);
       setError("Sign in failed. Please try again.");

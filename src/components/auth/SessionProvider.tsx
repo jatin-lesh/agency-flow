@@ -42,7 +42,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Initial fetch
     refresh();
+
+    // Re-fetch when the tab becomes visible again (handles login redirect edge cases)
+    const onFocus = () => refresh();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [refresh]);
 
   return (
