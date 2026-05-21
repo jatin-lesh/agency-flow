@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { notifyTaskEvent } from "@/lib/notifications";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -37,6 +38,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       attachments: true,
     },
   });
+
+  // Notify task assignee + creator of new message
+  const task = await db.task.findUnique({ where: { id: taskId }, select: { id: true, title: true } });
+  if (task) {
+    notifyTaskEvent("task.message", task, session.user.name, db);
+  }
 
   return NextResponse.json(message, { status: 201 });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { notifyTaskEvent } from "@/lib/notifications";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -9,12 +10,19 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   const assigneeId = searchParams.get("assigneeId");
+  const workspaceId = session.user.workspaceId ?? null;
+
+  const where: Record<string, unknown> = {};
+  if (projectId) where.projectId = projectId;
+  if (assigneeId) where.assigneeId = assigneeId;
+  if (workspaceId) {
+    where.project = {
+      client: { OR: [{ workspaceId }, { workspaceId: null }] },
+    };
+  }
 
   const tasks = await db.task.findMany({
-    where: {
-      ...(projectId ? { projectId } : {}),
-      ...(assigneeId ? { assigneeId } : {}),
-    },
+    where,
     include: {
       assignee: { select: { id: true, name: true, avatar: true } },
       creator: { select: { id: true, name: true } },
@@ -56,6 +64,9 @@ export async function POST(req: Request) {
       _count: { select: { messages: true } },
     },
   });
+
+  // Fire-and-forget WhatsApp notification
+  notifyTaskEvent("task.created", { id: task.id, title: task.title }, session.user.name, db);
 
   return NextResponse.json(task, { status: 201 });
 }

@@ -8,6 +8,7 @@ export type SessionUser = {
   email: string;
   role: Role;
   image?: string | null;
+  workspaceId?: string | null;
 };
 
 export type AppSession = {
@@ -29,6 +30,7 @@ export async function signToken(user: SessionUser): Promise<string> {
     email: user.email,
     role: user.role,
     image: user.image ?? null,
+    workspaceId: user.workspaceId ?? null,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -45,6 +47,7 @@ export async function verifyToken(token: string): Promise<SessionUser | null> {
       email: payload.email as string,
       role: payload.role as Role,
       image: (payload.image as string | null | undefined) ?? null,
+      workspaceId: (payload.workspaceId as string | null | undefined) ?? null,
     };
   } catch {
     return null;
@@ -59,4 +62,15 @@ export async function getSession(): Promise<AppSession | null> {
   const user = await verifyToken(token);
   if (!user) return null;
   return { user };
+}
+
+/** Sets the af_session cookie on the given response. */
+export function setSessionCookie(res: Response, token: string) {
+  // NextResponse has its own helper; this is for plain Response usage
+  res.headers.append(
+    "Set-Cookie",
+    `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${
+      30 * 24 * 60 * 60
+    }${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
+  );
 }

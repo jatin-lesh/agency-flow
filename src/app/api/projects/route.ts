@@ -9,9 +9,16 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const clientId = searchParams.get("clientId");
+  const workspaceId = session.user.workspaceId ?? null;
+
+  const where: Record<string, unknown> = {};
+  if (clientId) where.clientId = clientId;
+  if (workspaceId) {
+    where.client = { OR: [{ workspaceId }, { workspaceId: null }] };
+  }
 
   const projects = await db.project.findMany({
-    where: clientId ? { clientId } : undefined,
+    where,
     include: {
       client: { select: { id: true, name: true } },
       _count: { select: { tasks: true } },

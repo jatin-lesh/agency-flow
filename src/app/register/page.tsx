@@ -23,21 +23,27 @@ export default function RegisterPage() {
     setError("");
 
     try {
-      // Step 1: Create the account
       const regRes = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
 
+      const data = await regRes.json().catch(() => ({}));
+
       if (!regRes.ok) {
-        const data = await regRes.json().catch(() => ({}));
         setError(data.error ?? "Registration failed. Please try again.");
         setLoading(false);
         return;
       }
 
-      // Step 2: Log in immediately
+      // If verification is required, send the user to verify-otp
+      if (data.requiresVerification) {
+        router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+        return;
+      }
+
+      // Legacy fallback — log in immediately
       const loginRes = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -45,12 +51,10 @@ export default function RegisterPage() {
       });
 
       if (!loginRes.ok) {
-        // Account was created but auto-login failed — go to login
         router.push("/login?registered=1");
         return;
       }
 
-      // Hard navigation so SessionProvider re-mounts and fetches the new cookie
       window.location.href = "/dashboard";
     } catch {
       setError("Something went wrong. Your account may have been created — try signing in.");
@@ -66,7 +70,7 @@ export default function RegisterPage() {
             <Zap className="h-6 w-6 text-white" />
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white">AgencyFlow</h1>
+            <h1 className="text-2xl font-bold text-white">Lesh Space</h1>
             <p className="text-slate-400 text-sm mt-1">The first user becomes Admin automatically</p>
           </div>
         </div>

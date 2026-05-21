@@ -1,26 +1,44 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { signToken, SESSION_COOKIE } from "@/lib/session";
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
-
-    if (!email || !password) {
+    const { email, code } = await req.json();
+    if (!email || !code) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
+    const otp = await db.oTPCode.findFirst({
+      where: {
+        email,
+        code,
+        used: false,
+        purpose: "REGISTRATION",
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!otp) {
+      return NextResponse.json(
+        { error: "Invalid or expired code" },
+        { status: 400 },
+      );
+    }
+
     const user = await db.user.findUnique({ where: { email } });
-    if (!user || !user.password) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const valid = await bcrypt.compare(password as string, user.password);
-    if (!valid) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-    }
+    await db.oTPCode.update({ where: { id: otp.id }, data: { used: true } });
+    await db.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true },
+    });
 
+    // Find user's first workspace if any
     const member = await db.workspaceMember.findFirst({
       where: { userId: user.id },
       orderBy: { createdAt: "asc" },
@@ -41,11 +59,11 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 30 * 24 * 60 * 60, // 30 days
+      maxAge: 30 * 24 * 60 * 60,
     });
     return res;
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("OTP verify error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

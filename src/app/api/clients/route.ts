@@ -7,7 +7,12 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const workspaceId = session.user.workspaceId ?? null;
+
   const clients = await db.client.findMany({
+    where: workspaceId
+      ? { OR: [{ workspaceId }, { workspaceId: null }] }
+      : undefined,
     include: { pocs: true, _count: { select: { projects: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -27,8 +32,17 @@ export async function POST(req: Request) {
 
   if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
 
+  const workspaceId = session.user.workspaceId ?? null;
+
   const client = await db.client.create({
-    data: { name, industry, website, notes, visibility: visibility ?? "TEAM" },
+    data: {
+      name,
+      industry,
+      website,
+      notes,
+      visibility: visibility ?? "TEAM",
+      workspaceId,
+    },
   });
 
   return NextResponse.json(client, { status: 201 });

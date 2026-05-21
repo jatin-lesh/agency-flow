@@ -42,8 +42,9 @@ function LoginForm() {
         return;
       }
 
+      const data = await res.json().catch(() => ({}));
       // Hard navigation so SessionProvider re-mounts and fetches the new cookie
-      window.location.href = "/dashboard";
+      window.location.href = data.role === "CLIENT_USER" ? "/portal" : "/dashboard";
     } catch {
       setLoading(false);
       setError("Sign in failed. Please try again.");
@@ -58,8 +59,8 @@ function LoginForm() {
             <Zap className="h-6 w-6 text-white" />
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white">AgencyFlow</h1>
-            <p className="text-slate-400 text-sm mt-1">Marketing Agency Project Management</p>
+            <h1 className="text-2xl font-bold text-white">Lesh Space</h1>
+            <p className="text-slate-400 text-sm mt-1">Your agency. Your space.</p>
           </div>
         </div>
 

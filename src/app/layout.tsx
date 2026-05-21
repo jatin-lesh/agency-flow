@@ -6,8 +6,8 @@ import { SessionProvider } from "@/components/auth/SessionProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AgencyFlow — Marketing Agency PM",
-  description: "Project management for marketing agencies",
+  title: "Lesh Space — Your agency. Your space.",
+  description: "Your agency. Your space.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

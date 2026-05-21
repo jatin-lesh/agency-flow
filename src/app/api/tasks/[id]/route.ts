@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { canManage } from "@/lib/utils";
+import { notifyTaskEvent } from "@/lib/notifications";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -61,6 +62,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       creator: { select: { id: true, name: true } },
     },
   });
+
+  notifyTaskEvent("task.updated", { id: updated.id, title: updated.title }, session.user.name, db);
 
   return NextResponse.json(updated);
 }

@@ -51,21 +51,39 @@ enum AttachmentType {
   OTHER
 }
 
-model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String?
-  role      Role     @default(MEMBER)
-  avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  CLIENT
+}
 
-  assignedTasks Task[]          @relation("TaskAssignee")
-  createdTasks  Task[]          @relation("TaskCreator")
-  messages      ThreadMessage[]
-  accounts      Account[]
-  sessions      Session[]
+enum OTPPurpose {
+  REGISTRATION
+  INVITE
+}
+
+model User {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  password        String?
+  role            Role     @default(MEMBER)
+  avatar          String?
+  emailVerified   Boolean  @default(false)
+  phone           String?
+  whatsappEnabled Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assignedTasks   Task[]              @relation("TaskAssignee")
+  createdTasks    Task[]              @relation("TaskCreator")
+  messages        ThreadMessage[]
+  accounts        Account[]
+  sessions        Session[]
+  ownedWorkspaces Workspace[]         @relation("WorkspaceOwner")
+  workspaces      WorkspaceMember[]
+  portalAccess    ClientPortalAccess?
 }
 
 model Account {
@@ -103,19 +121,84 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Client {
-  id         String     @id @default(cuid())
-  name       String
-  industry   String?
-  logo       String?
-  website    String?
-  notes      String?
-  visibility Visibility @default(TEAM)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String?  @unique
+  ownerId   String
+  owner     User     @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  projects Project[]
-  pocs     POC[]
+  members     WorkspaceMember[]
+  clients     Client[]
+  invitations WorkspaceInvitation[]
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+
+  @@unique([workspaceId, userId])
+}
+
+model WorkspaceInvitation {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  email       String
+  role        WorkspaceRole @default(MEMBER)
+  token       String        @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  invitedById String?
+  createdAt   DateTime      @default(now())
+
+  @@index([email])
+}
+
+model OTPCode {
+  id        String     @id @default(cuid())
+  email     String
+  code      String
+  purpose   OTPPurpose @default(REGISTRATION)
+  expiresAt DateTime
+  used      Boolean    @default(false)
+  createdAt DateTime   @default(now())
+
+  @@index([email, purpose])
+}
+
+model ClientPortalAccess {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Client {
+  id          String     @id @default(cuid())
+  name        String
+  industry    String?
+  logo        String?
+  website     String?
+  notes       String?
+  visibility  Visibility @default(TEAM)
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  projects     Project[]
+  pocs         POC[]
+  portalUsers  ClientPortalAccess[]
 }
 
 model POC {
